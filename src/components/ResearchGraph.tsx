@@ -25,96 +25,137 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { transformDataToGraph } from "@/lib/graph-utils";
 
-// Initial placeholder state - centered node (Dark Teenage Engineering style)
+// Initial placeholder - clean and minimal
 const initialNodes = [
     { 
         id: 'ready', 
         position: { x: 0, y: 0 }, 
         data: { label: 'RabbitHole', type: 'ready' },
         style: {
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'rgba(255, 255, 255, 0.06)',
             color: '#ffffff',
-            border: '2px solid rgba(255, 255, 255, 0.2)',
-            width: 240,
-            borderRadius: '12px',
-            padding: '24px 28px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-            fontWeight: '600',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            width: 260,
+            borderRadius: '16px',
+            padding: '32px 36px',
+            boxShadow: '0 2px 16px rgba(0, 0, 0, 0.2)',
+            fontWeight: '400',
             fontSize: '18px',
-            letterSpacing: '0.02em',
-            backdropFilter: 'blur(10px)',
+            letterSpacing: '-0.01em',
         },
-        className: 'animate-bounce'
     },
 ];
 const initialEdges: any[] = [];
 
-function FlowContent({ shouldFitView, centerInitial, nodes }: { shouldFitView: boolean; centerInitial: boolean; nodes: Node[] }) {
-    const { fitView, getNodesBounds, setViewport } = useReactFlow();
+function FlowContent({ shouldFitView, centerInitial, nodes, searchBarRef }: { shouldFitView: boolean; centerInitial: boolean; nodes: Node[]; searchBarRef: React.RefObject<HTMLDivElement> }) {
+    const { fitView, getNodesBounds, setViewport, getViewport } = useReactFlow();
 
     useEffect(() => {
         if (shouldFitView) {
+            // Increased delay to ensure nodes are fully rendered and positioned
             setTimeout(() => {
-                // Exclude report node from fitView so it stays at the bottom
-                const nodesWithoutReport = nodes.filter(n => n.id !== 'report');
+                // Find report node by type (not ID, since ID is now dynamic with timestamp)
+                const reportNode = nodes.find(n => n.data?.type === 'report');
+                const nodesWithoutReport = nodes.filter(n => n.data?.type !== 'report');
                 
                 // Debug logging
                 console.log('🔍 [DEBUG] fitView called:', {
                     totalNodes: nodes.length,
                     nodesWithoutReport: nodesWithoutReport.length,
-                    reportNode: nodes.find(n => n.id === 'report'),
-                    reportNodePosition: nodes.find(n => n.id === 'report')?.position,
-                    nodesToFit: nodesWithoutReport.map(n => ({ id: n.id, y: n.position.y }))
+                    reportNode: reportNode,
+                    reportNodeId: reportNode?.id,
+                    reportNodePosition: reportNode?.position,
+                    nodesToFit: nodesWithoutReport.map(n => ({ id: n.id, type: n.data?.type, y: n.position.y }))
                 });
                 
-                // Calculate bounds for ALL nodes including report to ensure it's visible at bottom
-                if (nodes.length > 0) {
-                    try {
-                        // Get bounds for all nodes (including report) to ensure full graph is visible
-                        const allBounds = getNodesBounds(nodes);
-                        const reportNode = nodes.find(n => n.id === 'report');
-                        
-                        console.log('🔍 [DEBUG] All nodes bounds:', allBounds);
-                        console.log('🔍 [DEBUG] Report node position:', reportNode?.position);
-                        
-                        // Calculate viewport to show all nodes including report at bottom
-                        const padding = 0.15; // Slightly less padding to show more
-                        const viewportWidth = window.innerWidth;
+                // Use fitView to get optimal zoom, then adjust to show root at top
+                if (nodes.length > 0 && reportNode) {
+                    const rootNode = nodes.find(n => n.data?.type === 'root');
+                    if (!rootNode) {
+                        fitView({ padding: 0.2, duration: 400 });
+                        return;
+                    }
+                    
+                    // Step 1: Use fitView to get optimal zoom (fits all nodes)
+                    fitView({ padding: 0.15, duration: 0, maxZoom: 1.0, minZoom: 0.1 });
+                    
+                    // Step 2: Adjust viewport Y to position root directly below search bar
+                    setTimeout(() => {
+                        const currentViewport = getViewport();
+                        // Calculate actual search bar bottom position dynamically
+                        // Default to 240px if search bar ref not available
+                        let topPadding = 240;
+                        if (searchBarRef?.current) {
+                            const searchBarRect = searchBarRef.current.getBoundingClientRect();
+                            topPadding = searchBarRect.bottom + 20; // Add 20px spacing below search bar
+                        }
                         const viewportHeight = window.innerHeight;
                         
-                        // Calculate zoom to fit all nodes
-                        const scaleX = viewportWidth / (allBounds.width * (1 + 2 * padding));
-                        const scaleY = viewportHeight / (allBounds.height * (1 + 2 * padding));
-                        const zoom = Math.min(scaleX, scaleY, 1.0); // Limit max zoom to ensure visibility
+                        // Calculate where root currently appears on screen after fitView
+                        const rootCurrentScreenY = (rootNode.position.y - currentViewport.y) * currentViewport.zoom;
                         
-                        // Center all bounds (including report) in the viewport
-                        const centerX = allBounds.x + allBounds.width / 2;
-                        const centerY = allBounds.y + allBounds.height / 2;
-                        const x = viewportWidth / 2 - centerX * zoom;
-                        const y = viewportHeight / 2 - centerY * zoom;
+                        // Shift viewport up so root appears at topPadding (right below search bar)
+                        const shiftY = (rootCurrentScreenY - topPadding) / currentViewport.zoom;
+                        const adjustedY = currentViewport.y + shiftY;
                         
-                        console.log('🔍 [DEBUG] Setting viewport (all nodes including report):', { 
-                            x, y, zoom, 
-                            allBounds,
-                            reportNodePosition: reportNode?.position,
-                            viewportSize: { viewportWidth, viewportHeight }
+                        // Verify report will be visible
+                        const reportScreenY = (reportNode.position.y - adjustedY) * currentViewport.zoom;
+                        const reportVisible = reportScreenY > topPadding && reportScreenY < viewportHeight - 60;
+                        
+                        console.log('🔍 [DEBUG] Adjusting viewport:', {
+                            currentViewport,
+                            rootCurrentScreenY,
+                            shiftY,
+                            adjustedY,
+                            reportScreenY,
+                            reportVisible,
+                            rootY: rootNode.position.y,
+                            reportY: reportNode.position.y
                         });
-                        setViewport({ x, y, zoom }, { duration: 400 });
-                    } catch (error) {
-                        console.warn('Failed to calculate bounds, using default fitView:', error);
-                        // Fallback: use fitView which will include all nodes
-                        fitView({ padding: 0.15, duration: 400, maxZoom: 1.0 });
-                    }
+                        
+                        // Set adjusted viewport
+                        setViewport({ 
+                            x: currentViewport.x, 
+                            y: adjustedY, 
+                            zoom: currentViewport.zoom 
+                        }, { duration: 600 });
+                        
+                        // Final check to ensure viewport stuck
+                        setTimeout(() => {
+                            const finalViewport = getViewport();
+                            const finalRootScreenY = (rootNode.position.y - finalViewport.y) * finalViewport.zoom;
+                            const finalReportScreenY = (reportNode.position.y - finalViewport.y) * finalViewport.zoom;
+                            
+                            console.log('🔍 [DEBUG] Final viewport check:', {
+                                finalViewport,
+                                finalRootScreenY,
+                                finalReportScreenY,
+                                rootVisible: finalRootScreenY >= topPadding - 50 && finalRootScreenY <= topPadding + 50,
+                                reportVisible: finalReportScreenY > topPadding && finalReportScreenY < viewportHeight
+                            });
+                            
+                            // If viewport was reset, reapply
+                            if (Math.abs(finalViewport.y - adjustedY) > 50) {
+                                console.warn('🔍 [DEBUG] Viewport was reset, reapplying...');
+                                setViewport({ 
+                                    x: currentViewport.x, 
+                                    y: adjustedY, 
+                                    zoom: currentViewport.zoom 
+                                }, { duration: 0 });
+                            }
+                        }, 700);
+                    }, 150);
                 } else {
                     fitView({ padding: 0.2, duration: 400 });
                 }
-            }, 100);
+            }, 400); // Wait for nodes to render
         }
-    }, [shouldFitView, fitView, getNodesBounds, setViewport, nodes]);
+    }, [shouldFitView, fitView, getNodesBounds, setViewport, getViewport, nodes]);
 
     useEffect(() => {
-        if (centerInitial) {
-            // Center the initial node on mount
+        // Only center initial node if we don't have research nodes yet
+        if (centerInitial && nodes.length <= 1) {
+            // Center the initial node on mount (only for the "RabbitHole" placeholder)
             setTimeout(() => {
                 fitView({ 
                     padding: 0.4, 
@@ -124,7 +165,7 @@ function FlowContent({ shouldFitView, centerInitial, nodes }: { shouldFitView: b
                 });
             }, 300);
         }
-    }, [centerInitial, fitView]);
+    }, [centerInitial, fitView, nodes.length]);
 
     return null;
 }
@@ -139,15 +180,17 @@ export default function ResearchGraph() {
     const [centerInitial, setCenterInitial] = useState(true);
     const [researchData, setResearchData] = useState<any>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
+    const searchBarRef = useRef<HTMLDivElement>(null);
     
     // Debug: Monitor node position changes
     useEffect(() => {
-        const reportNode = nodes.find(n => n.id === 'report');
+        const reportNode = nodes.find(n => n.data?.type === 'report');
         if (reportNode) {
             console.log('🔍 [DEBUG] Report node position in state:', {
                 id: reportNode.id,
+                type: reportNode.data?.type,
                 position: reportNode.position,
-                allNodes: nodes.map(n => ({ id: n.id, y: n.position.y }))
+                allNodes: nodes.map(n => ({ id: n.id, type: n.data?.type, y: n.position.y }))
             });
         }
     }, [nodes]);
@@ -182,19 +225,42 @@ export default function ResearchGraph() {
             const { nodes: newNodes, edges: newEdges } = transformDataToGraph(query, data);
             
             // Debug logging
+            const reportNodeAfterTransform = newNodes.find(n => n.data?.type === 'report');
             console.log('🔍 [DEBUG] After transformDataToGraph:', {
               totalNodes: newNodes.length,
-              reportNode: newNodes.find(n => n.id === 'report'),
+              reportNode: reportNodeAfterTransform,
+              reportNodeId: reportNodeAfterTransform?.id,
+              reportNodePosition: reportNodeAfterTransform?.position,
               allNodePositions: newNodes.map(n => ({ id: n.id, type: n.data?.type, position: n.position })),
               maxY: Math.max(...newNodes.map(n => n.position.y)),
-              minY: Math.min(...newNodes.map(n => n.position.y))
+              minY: Math.min(...newNodes.map(n => n.position.y)),
+              rootNode: newNodes.find(n => n.data?.type === 'root'),
+              sourceNodes: newNodes.filter(n => n.data?.type === 'source').length
+            });
+            
+            // Verify node positions before setting
+            const rootNodeCheck = newNodes.find(n => n.data?.type === 'root');
+            const reportNodeCheck = newNodes.find(n => n.data?.type === 'report');
+            console.log('🔍 [DEBUG] Before setNodes - Node positions:', {
+                rootPosition: rootNodeCheck?.position,
+                reportPosition: reportNodeCheck?.position,
+                reportId: reportNodeCheck?.id,
+                verticalDistance: reportNodeCheck && rootNodeCheck 
+                    ? reportNodeCheck.position.y - rootNodeCheck.position.y 
+                    : null,
+                isReportBelowRoot: reportNodeCheck && rootNodeCheck
+                    ? reportNodeCheck.position.y > rootNodeCheck.position.y
+                    : false
             });
             
             setNodes(newNodes);
             setEdges(newEdges);
             setResearchData(data); // Store research data for PDF export
-            setShouldFitView(true);
-            setCenterInitial(false); // Don't center after research
+            setCenterInitial(false); // Disable centerInitial before setting shouldFitView
+            // Small delay to ensure centerInitial is disabled
+            setTimeout(() => {
+                setShouldFitView(true);
+            }, 50);
 
         } catch (error) {
             console.error("❌ Error fetching research:", error);
@@ -434,13 +500,12 @@ export default function ResearchGraph() {
     }, [shouldFitView]);
 
     return (
-        <div className="te-bg" style={{ 
+        <div style={{ 
             width: '100vw', 
             height: '100vh', 
-            background: '#0a0a0a',
+            background: '#000000',
             position: 'relative',
             overflow: 'hidden',
-            padding: '32px 48px'
         }}>
             
             <ReactFlowProvider>
@@ -454,101 +519,97 @@ export default function ResearchGraph() {
                 colorMode="dark"
                 style={{ 
                     background: 'transparent',
-                    paddingTop: 180, 
                     height: '100%'
                 }}
             >
-                <FlowContent shouldFitView={shouldFitView} centerInitial={centerInitial} nodes={nodes} />
+                <FlowContent shouldFitView={shouldFitView} centerInitial={centerInitial} nodes={nodes} searchBarRef={searchBarRef} />
                 <Controls 
                     style={{
-                        background: 'rgba(18, 18, 18, 0.8)',
-                        border: '2px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: '0px',
-                        padding: '8px',
+                        background: 'rgba(0, 0, 0, 0.6)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '12px',
+                        padding: '6px',
                         backdropFilter: 'blur(20px)',
-                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
                     }}
                 />
                 <MiniMap 
                     style={{
-                        background: 'rgba(18, 18, 18, 0.8)',
-                        border: '2px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: '0px',
+                        background: 'rgba(0, 0, 0, 0.6)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '12px',
                         backdropFilter: 'blur(20px)',
-                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
                     }}
                     nodeColor={(node) => {
-                        if (node.data?.type === 'root') return 'rgba(255, 255, 255, 0.2)';
-                        if (node.data?.type === 'report') return 'rgba(76, 175, 80, 0.3)';
-                        return 'rgba(255, 255, 255, 0.1)';
+                        if (node.data?.type === 'root') return 'rgba(255, 255, 255, 0.3)';
+                        if (node.data?.type === 'report') return 'rgba(0, 122, 255, 0.4)';
+                        return 'rgba(255, 255, 255, 0.15)';
                     }}
                 />
                 <Background 
                     variant={BackgroundVariant.Dots} 
-                    gap={40} 
-                    size={1.5}
-                    color="rgba(255, 255, 255, 0.03)"
+                    gap={32} 
+                    size={1}
+                    color="rgba(255, 255, 255, 0.02)"
                 />
 
-                <Panel position="top-center" className="w-full max-w-2xl mx-auto mt-8 z-10 animate-slide-in px-4">
-                    <div className="flex flex-col items-center gap-5">
-                        <div className="text-center space-y-2">
-                            <h1 className="text-[44px] font-semibold text-white tracking-tight" style={{ letterSpacing: '-0.02em' }}>
+                <Panel position="top-center" className="w-full max-w-2xl mx-auto mt-12 z-10 px-6">
+                    <div ref={searchBarRef} className="flex flex-col items-center gap-8">
+                        <div className="text-center space-y-3">
+                            <h1 className="text-5xl font-light text-white" style={{ letterSpacing: '-0.03em' }}>
                                 RabbitHole
                             </h1>
-                            <p className="text-white/40 text-base font-normal tracking-wide">
+                            <p className="text-white/50 text-sm font-light">
                                 Discover knowledge through exploration
                             </p>
                         </div>
-                        <Card className="te-card-dark p-4 flex gap-3 w-full items-center rounded-xl border border-white/10 shadow-lg">
+                        <div className="flex gap-3 w-full items-center bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5">
                             <Input
                                 placeholder="What would you like to explore?"
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                className="bg-white/5 border border-white/15 text-white placeholder:text-white/40 flex-1 h-11 text-base rounded-lg px-4 focus:border-white/40 focus:ring-0 transition-all duration-200 font-medium"
+                                className="bg-transparent border-0 text-white placeholder:text-white/40 flex-1 h-12 text-base rounded-xl px-5 focus-visible:ring-0 focus-visible:ring-offset-0 font-light"
                                 onKeyDown={(e) => e.key === 'Enter' && !loading && handleResearch()}
                                 disabled={loading}
                             />
                             <Button
                                 onClick={handleResearch}
                                 disabled={loading || !query.trim()}
-                                className="bg-white/10 hover:bg-white/20 text-white min-w-[110px] h-11 rounded-lg font-medium text-sm border border-white/20 hover:border-white/35 shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 tracking-wide"
+                                className="bg-white text-black hover:bg-white/90 h-12 px-8 rounded-xl font-medium text-sm disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
                             >
                                 {loading ? (
                                     <span className="flex items-center gap-2">
-                                        <span className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
                                         <span>Exploring</span>
                                     </span>
                                 ) : (
                                     'Explore'
                                 )}
                             </Button>
-                        </Card>
+                        </div>
                     </div>
                 </Panel>
 
                 {selectedNode && (
-                    <Panel position="top-right" className="w-full max-w-xl mt-16 mr-10 z-20 animate-slide-in px-4">
-                        <Card 
+                    <Panel position="top-right" className="w-full max-w-2xl mt-20 mr-8 z-20 px-4">
+                        <div 
                             ref={sidebarRef}
-                            className="te-card-dark p-7 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+                            className="bg-black/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-8 max-h-[85vh] overflow-y-auto scrollbar-thin"
                         >
-                            <div className="flex justify-between items-start mb-6 sticky top-0 bg-[#0a0a0a]/95 backdrop-blur-sm pb-4 -mx-2 px-2 z-10 border-b-2 border-white/10" style={{ borderBottomWidth: '2px' }}>
-                                <div className="flex-1 pr-4">
-                                    <h3 className="text-2xl font-semibold text-white mb-2 tracking-tight" style={{ letterSpacing: '-0.01em' }}>
+                            <div className="flex justify-between items-start mb-8 sticky top-0 bg-black/80 backdrop-blur-xl pb-6 -mx-2 px-2 z-10 border-b border-white/10">
+                                <div className="flex-1 pr-6">
+                                    <h3 className="text-3xl font-light text-white mb-2" style={{ letterSpacing: '-0.02em' }}>
                                         {selectedNode.data.label}
                                     </h3>
-                                    <p className="text-white/40 text-xs uppercase tracking-wider font-medium">
+                                    <p className="text-white/40 text-xs font-light uppercase tracking-wider">
                                         {selectedNode.data.type || 'node'}
                                     </p>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
                                     {researchData && selectedNode.data.type === 'report' && (
                                         <Button
                                             onClick={handleDownloadPDF}
                                             size="sm"
-                                            className="bg-white/10 hover:bg-white/15 text-white text-xs h-9 px-4 rounded-none font-semibold border-2 border-white/20 hover:border-white/30 shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.6)] transition-all duration-200 transform hover:scale-105 backdrop-blur-sm"
-                                            style={{ borderWidth: '2px' }}
+                                            className="bg-white text-black hover:bg-white/90 h-9 px-5 rounded-xl text-xs font-medium transition-all"
                                         >
                                             <Download className="h-4 w-4 mr-2" />
                                             PDF
@@ -558,8 +619,7 @@ export default function ResearchGraph() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => setSelectedNode(null)}
-                                        className="text-white/40 hover:text-white/70 hover:bg-white/5 h-9 w-9 p-0 flex-shrink-0 rounded-none border-2 border-white/10 hover:border-white/20 transition-all duration-200 text-xl font-semibold"
-                                        style={{ borderWidth: '2px' }}
+                                        className="text-white/40 hover:text-white/80 hover:bg-white/5 h-9 w-9 p-0 rounded-xl text-xl font-light transition-all"
                                     >
                                         ×
                                     </Button>
@@ -571,50 +631,50 @@ export default function ResearchGraph() {
                                     href={selectedNode.data.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-sm text-white/60 hover:text-white/80 mb-5 block break-all underline decoration-white/20 hover:decoration-white/40 transition-all duration-300 font-medium"
+                                    className="text-sm text-white/50 hover:text-white/70 mb-6 block break-all underline decoration-white/20 hover:decoration-white/40 transition-colors font-light"
                                 >
                                     {selectedNode.data.url}
                                 </a>
                             )}
                             
-                            <div className="text-base text-white/80 space-y-2 leading-relaxed">
+                            <div className="text-base text-white/80 space-y-4 leading-relaxed">
                                 {selectedNode.data.details && (
-                                    <div className="prose prose-invert max-w-none markdown-content">
+                                    <div className="prose prose-invert max-w-none">
                                         {typeof selectedNode.data.details === 'string' ? (
                                             <ReactMarkdown
                                                 components={{
-                                                    h1: ({node, ...props}) => <h1 className="text-white text-3xl font-semibold mb-6 mt-8 border-b-2 border-white/20 pb-3 tracking-tight" style={{ letterSpacing: '-0.02em', borderBottomWidth: '2px' }} {...props} />,
-                                                    h2: ({node, ...props}) => <h2 className="text-white text-2xl font-semibold mb-5 mt-7 tracking-tight" style={{ letterSpacing: '-0.01em' }} {...props} />,
-                                                    h3: ({node, ...props}) => <h3 className="text-white text-xl font-semibold mb-4 mt-6 tracking-tight" {...props} />,
-                                                    p: ({node, ...props}) => <p className="text-white/70 leading-[1.8] mb-5 font-normal" style={{ letterSpacing: '0.01em' }} {...props} />,
-                                                    ul: ({node, ...props}) => <ul className="list-disc list-outside text-white/70 mb-5 ml-6 space-y-2" {...props} />,
-                                                    ol: ({node, ...props}) => <ol className="list-decimal list-outside text-white/70 mb-5 ml-6 space-y-2" {...props} />,
-                                                    li: ({node, ...props}) => <li className="ml-2 text-white/70 leading-[1.8] font-normal" {...props} />,
+                                                    h1: ({node, ...props}) => <h1 className="text-white text-2xl font-light mb-6 mt-8 pb-3 border-b border-white/10" style={{ letterSpacing: '-0.02em' }} {...props} />,
+                                                    h2: ({node, ...props}) => <h2 className="text-white text-xl font-light mb-5 mt-7" style={{ letterSpacing: '-0.01em' }} {...props} />,
+                                                    h3: ({node, ...props}) => <h3 className="text-white text-lg font-light mb-4 mt-6" {...props} />,
+                                                    p: ({node, ...props}) => <p className="text-white/70 leading-relaxed mb-5 font-light" {...props} />,
+                                                    ul: ({node, ...props}) => <ul className="list-disc list-outside text-white/70 mb-5 ml-6 space-y-2 font-light" {...props} />,
+                                                    ol: ({node, ...props}) => <ol className="list-decimal list-outside text-white/70 mb-5 ml-6 space-y-2 font-light" {...props} />,
+                                                    li: ({node, ...props}) => <li className="ml-2 text-white/70 leading-relaxed font-light" {...props} />,
                                                     code: ({node, inline, ...props}: any) => 
                                                         inline ? (
-                                                            <code className="bg-white/10 text-white px-2 py-1 rounded-none text-sm font-mono border-2 border-white/20 font-medium" style={{ borderWidth: '2px' }} {...props} />
+                                                            <code className="bg-white/10 text-white px-2 py-0.5 rounded text-sm font-mono font-normal" {...props} />
                                                         ) : (
-                                                            <code className="block bg-white/5 text-white/90 p-4 rounded-none text-sm overflow-x-auto mb-5 font-mono border-2 border-white/10" style={{ borderWidth: '2px' }} {...props} />
+                                                            <code className="block bg-white/5 text-white/90 p-4 rounded-xl text-sm overflow-x-auto mb-5 font-mono font-light" {...props} />
                                                         ),
-                                                    pre: ({node, ...props}) => <pre className="bg-white/5 text-white/90 p-4 rounded-none text-sm overflow-x-auto mb-5 font-mono border-2 border-white/10" style={{ borderWidth: '2px' }} {...props} />,
-                                                    a: ({node, ...props}: any) => <a className="text-white/60 hover:text-white underline decoration-white/30 hover:decoration-white/50 font-medium transition-all duration-300" target="_blank" rel="noopener noreferrer" {...props} />,
-                                                    blockquote: ({node, ...props}) => <blockquote className="border-l-3 border-white/20 pl-5 italic text-white/60 mb-5 my-5 font-normal" style={{ borderLeftWidth: '3px' }} {...props} />,
-                                                    strong: ({node, ...props}) => <strong className="font-semibold text-white" {...props} />,
-                                                    em: ({node, ...props}) => <em className="italic text-white/80 font-normal" {...props} />,
-                                                    hr: ({node, ...props}) => <hr className="border-white/10 my-8" style={{ borderWidth: '2px' }} {...props} />,
+                                                    pre: ({node, ...props}) => <pre className="bg-white/5 text-white/90 p-4 rounded-xl text-sm overflow-x-auto mb-5 font-mono font-light" {...props} />,
+                                                    a: ({node, ...props}: any) => <a className="text-white/60 hover:text-white underline decoration-white/30 hover:decoration-white/50 font-light transition-colors" target="_blank" rel="noopener noreferrer" {...props} />,
+                                                    blockquote: ({node, ...props}) => <blockquote className="border-l border-white/20 pl-5 italic text-white/60 mb-5 my-5 font-light" {...props} />,
+                                                    strong: ({node, ...props}) => <strong className="font-medium text-white" {...props} />,
+                                                    em: ({node, ...props}) => <em className="italic text-white/80 font-light" {...props} />,
+                                                    hr: ({node, ...props}) => <hr className="border-white/10 my-8" {...props} />,
                                                 }}
                                             >
                                                 {selectedNode.data.details}
                                             </ReactMarkdown>
                                         ) : (
-                                            <pre className="text-sm overflow-auto bg-white/5 text-white/80 p-4 rounded-none border-2 border-white/10" style={{ borderWidth: '2px' }}>
+                                            <pre className="text-sm overflow-auto bg-white/5 text-white/80 p-4 rounded-xl border border-white/10 font-light">
                                                 {JSON.stringify(selectedNode.data.details, null, 2)}
                                             </pre>
                                         )}
                                     </div>
                                 )}
                             </div>
-                        </Card>
+                        </div>
                     </Panel>
                 )}
             </ReactFlow>

@@ -43,7 +43,8 @@ serve({
             query: query,
             limit: 10,
             scrapeOptions: {
-              formats: ["markdown"]
+              formats: ["markdown", "html", "links"],
+              excludeTags: ['meta', 'link', 'script', 'style', '.fundraising-banner', '#siteNotice', '.ad', '.ads', '#ad', '[class*="ad-"]', '[id*="ad-"]', 'iframe', 'footer']
             }
           }),
         });

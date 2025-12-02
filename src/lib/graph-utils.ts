@@ -100,12 +100,12 @@ export const transformDataToGraph = (query: string, data: any) => {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
-  // Define Layout Levels (Vertical Spacing) - Strict Top-Middle-Bottom structure
+  // Define Layout Levels (Vertical Spacing) - Compact, beautiful layout
   const LEVEL_1_Y = 0;    // Root Query (Top)
-  const LEVEL_2_Y = 600;  // Sources (Middle) - Increased spacing for clarity
-  const LEVEL_3_Y = 1200; // Final Report (Bottom) - Increased spacing for clarity
+  const LEVEL_2_Y = 300;  // Sources (Middle) - Compact spacing
+  const LEVEL_3_Y = 600;  // Final Report (Bottom) - Close to sources for shorter edges
 
-  // 1. Create Root Node (The User's Query) - Dark Teenage Engineering style
+  // 1. Create Root Node - Clean, minimal design
   const rootId = 'root';
   nodes.push({
     id: rootId,
@@ -117,19 +117,18 @@ export const transformDataToGraph = (query: string, data: any) => {
     },
     type: 'default',
     style: { 
-      background: 'rgba(255, 255, 255, 0.05)',
+      background: 'rgba(255, 255, 255, 0.08)',
       color: '#ffffff', 
-      border: '2px solid rgba(255, 255, 255, 0.2)',
-      width: 240,
-      fontWeight: '600',
-      fontSize: '16px',
-      borderRadius: '12px',
-      padding: '24px 28px',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-      letterSpacing: '0.02em',
-      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255, 255, 255, 0.15)',
+      width: 280,
+      fontWeight: '500',
+      fontSize: '17px',
+      borderRadius: '16px',
+      padding: '28px 32px',
+      boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
+      letterSpacing: '-0.01em',
     },
-    className: 'font-semibold animate-pop',
+    className: 'cursor-pointer',
   });
 
   // 2. Process Sources (The websites found from Firecrawl v2/search)
@@ -181,50 +180,40 @@ export const transformDataToGraph = (query: string, data: any) => {
   
   sources.forEach((source: any, index: number) => {
     const sourceId = `source-${index}`;
-    const xPos = (index - (sources.length - 1) / 2) * 240; // Spread horizontally, centered
+    // Increase spacing to prevent overlapping - 280px between nodes
+    const spacing = 280;
+    const xPos = (index - (sources.length - 1) / 2) * spacing; // Spread horizontally, centered
     
     // Use title from source, fallback to hostname
     const sourceTitle = source.title || (source.url ? getHostname(source.url) : `Source ${index + 1}`);
     const sourceContent = getSourceContent(source);
     
-    // Dark theme colors for sources - subtle variations
-    const darkColors = [
-      'rgba(255, 255, 255, 0.08)',
-      'rgba(244, 67, 54, 0.15)',
-      'rgba(33, 150, 243, 0.15)',
-      'rgba(76, 175, 80, 0.15)',
-      'rgba(255, 152, 0, 0.15)',
-      'rgba(156, 39, 176, 0.15)',
-    ];
-    const sourceBg = darkColors[index % darkColors.length];
-    
+    // Clean, minimal source nodes - subtle gray variations
     nodes.push({
       id: sourceId,
-      position: { x: xPos, y: LEVEL_2_Y }, // Middle level - Sources
+      position: { x: xPos, y: LEVEL_2_Y },
       data: { 
         label: sourceTitle, 
         type: 'source',
         details: sourceContent || source.url || 'No content available',
         url: source.url,
-        category: source.category, // Store category if available
-        position: source.position, // Store ranking position
+        category: source.category,
+        position: source.position,
       },
       type: 'default',
       style: { 
-        background: sourceBg,
+        background: 'rgba(255, 255, 255, 0.06)',
         color: '#ffffff', 
-        border: '2px solid rgba(255, 255, 255, 0.15)',
-        width: 200,
-        fontSize: '14px',
-        borderRadius: '12px',
-        padding: '18px 22px',
-        boxShadow: '0 6px 24px rgba(0, 0, 0, 0.4)',
-        fontWeight: '500',
-        letterSpacing: '0.01em',
-        transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        width: 260,
+        fontSize: '15px',
+        borderRadius: '14px',
+        padding: '20px 24px',
+        boxShadow: '0 2px 16px rgba(0, 0, 0, 0.2)',
+        fontWeight: '400',
+        letterSpacing: '-0.01em',
       },
-      className: 'hover:scale-105 hover:border-white/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.6)] transition-all duration-200 cursor-pointer',
+      className: 'cursor-pointer hover:bg-white/10 transition-colors duration-200',
     });
 
     edges.push({
@@ -232,10 +221,10 @@ export const transformDataToGraph = (query: string, data: any) => {
       source: rootId,
       target: sourceId,
       animated: true,
-      style: { 
-        stroke: 'rgba(255, 255, 255, 0.3)', 
-        strokeWidth: 2,
-        strokeDasharray: '8 4',
+        style: { 
+        stroke: 'rgba(255, 255, 255, 0.2)', 
+        strokeWidth: 1.5,
+        strokeDasharray: '6 4',
       },
     });
   });
@@ -244,7 +233,10 @@ export const transformDataToGraph = (query: string, data: any) => {
   // For v2/search, we can create a synthesized report node
   // Report should appear at the bottom, where all source node edges converge
   if (sources.length > 0) {
-    const reportId = 'report';
+    // Generate unique ID using timestamp to prevent React Flow state preservation
+    // This forces React Flow to treat the report node as new on each search
+    const timestamp = Date.now();
+    const reportId = `report-${timestamp}`;
     // Position report at the bottom using strict level structure
     // This ensures it always appears below sources regardless of source count
     
@@ -313,46 +305,48 @@ export const transformDataToGraph = (query: string, data: any) => {
       },
       type: 'default',
       style: { 
-        background: 'rgba(76, 175, 80, 0.2)',
+        background: 'rgba(0, 122, 255, 0.12)',
         color: '#ffffff', 
-        border: '2px solid rgba(76, 175, 80, 0.4)',
-        width: 200,
-        borderRadius: '12px',
-        padding: '20px 26px',
-        fontWeight: '600',
-        fontSize: '16px',
-        boxShadow: '0 8px 32px rgba(76, 175, 80, 0.3)',
-        letterSpacing: '0.02em',
-        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(0, 122, 255, 0.3)',
+        width: 300,
+        borderRadius: '16px',
+        padding: '24px 28px',
+        fontWeight: '500',
+        fontSize: '17px',
+        boxShadow: '0 4px 24px rgba(0, 122, 255, 0.15)',
+        letterSpacing: '-0.01em',
       },
-      className: 'animate-bounce',
-      draggable: true, // Allow dragging but position is set explicitly
+      className: 'cursor-pointer',
+      draggable: true,
     };
     
     // Debug logging
     console.log('🔍 [DEBUG] Report Node Position:', {
       reportId,
+      timestamp,
       position: reportNode.position,
       levels: { LEVEL_1_Y, LEVEL_2_Y, LEVEL_3_Y },
       totalNodes: nodes.length,
       maxYBeforeReport: Math.max(...nodes.map(n => n.position.y)),
-      nodeIds: nodes.map(n => ({ id: n.id, y: n.position.y }))
+      nodeIds: nodes.map(n => ({ id: n.id, y: n.position.y })),
+      message: `Report node created with unique ID ${reportId} at Y=${LEVEL_3_Y} to prevent state caching`
     });
     
     nodes.push(reportNode);
 
     // Connect all sources to the report (Synthesis)
+    // Use dynamic reportId in edge ID to prevent edge caching issues
     sources.forEach((_: any, index: number) => {
       edges.push({
-        id: `e-source-${index}-report`,
+        id: `e-source-${index}-${reportId}`,
         source: `source-${index}`,
         target: reportId,
         animated: true,
         style: { 
-          stroke: 'rgba(76, 175, 80, 0.4)', 
-          opacity: 0.5, 
-          strokeWidth: 2,
-          strokeDasharray: '8 4',
+          stroke: 'rgba(0, 122, 255, 0.3)', 
+          opacity: 0.4, 
+          strokeWidth: 1.5,
+          strokeDasharray: '6 4',
         },
       });
     });

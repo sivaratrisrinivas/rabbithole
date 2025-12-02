@@ -1,73 +1,142 @@
-# React + TypeScript + Vite
+# RabbitHole 🐇
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Discover knowledge through exploration**
 
-Currently, two official plugins are available:
+RabbitHole is a beautiful, interactive research tool that transforms your questions into visual knowledge graphs. Enter any query, and watch as it branches out into sources and converges into a comprehensive report.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 📹 Demo
 
-## React Compiler
+Watch how RabbitHole works:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+<div>
+  <a href="https://www.loom.com/share/e9e5de73335b4a349228f65308cbd06c">
+    <p>RABBITHOLE - Watch Video</p>
+  </a>
+  <a href="https://www.loom.com/share/e9e5de73335b4a349228f65308cbd06c">
+    <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/e9e5de73335b4a349228f65308cbd06c-e5f5d2a1cdeb156e-full-play.gif#t=0.1" alt="RabbitHole Demo Video">
+  </a>
+</div>
 
-## Expanding the ESLint configuration
+## What is RabbitHole?
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+RabbitHole is a web application that helps you explore complex topics by:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Visualizing research** as an interactive node graph
+- **Connecting sources** to show how information flows
+- **Synthesizing findings** into a comprehensive final report
+- **Exporting results** as a clean PDF document
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Instead of reading through multiple tabs and articles, RabbitHole shows you the big picture at a glance.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Why RabbitHole?
+
+Research can be overwhelming. When you search for something online, you get:
+- Multiple articles to read
+- Different perspectives to compare
+- Information scattered across websites
+- No clear way to see connections
+
+RabbitHole solves this by:
+- **Visualizing connections** between sources
+- **Showing the research flow** from question to answer
+- **Creating a synthesis** so you don't have to piece it together yourself
+- **Making it beautiful** with a clean, minimal design
+
+## How It Works
+
+1. **Enter your question** in the search bar (e.g., "Who founded Python?")
+2. **RabbitHole searches** the web using Firecrawl API
+3. **Sources appear** as nodes connected to your question
+4. **A final report** synthesizes all findings at the bottom
+5. **Click any node** to read detailed information
+6. **Download the report** as a PDF when you're done
+
+The graph shows three levels:
+- **Root Node** (top): Your original question
+- **Source Nodes** (middle): Websites and articles found
+- **Final Report** (bottom): Synthesized answer combining all sources
+
+## Getting Started
+
+### Prerequisites
+
+- [Bun](https://bun.sh) (JavaScript runtime)
+- A [Firecrawl API key](https://firecrawl.dev) (free tier available)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd rabbit-hole
+   ```
+
+2. **Install dependencies**
+   ```bash
+   bun install
+   ```
+
+3. **Set up your API key**
+   
+   Create a `.env` file in the root directory:
+   ```env
+   FIRECRAWL_API_KEY=your-api-key-here
+   ```
+
+4. **Start the backend server**
+   ```bash
+   bun server.ts
+   ```
+   
+   The server will run on `http://localhost:3000`
+
+5. **Start the frontend** (in a new terminal)
+   ```bash
+   bun run dev
+   ```
+   
+   The app will open at `http://localhost:5173`
+
+### Usage
+
+1. Open `http://localhost:5173` in your browser
+2. Type your research question in the search bar
+3. Click "Explore" or press Enter
+4. Wait for the graph to appear (usually 15-30 seconds)
+5. Click any node to read more details
+6. Click the Final Report node to see the synthesized answer
+7. Download the PDF if you want to save it
+
+## Tech Stack
+
+- **Frontend**: React + TypeScript + Vite
+- **Graph Visualization**: React Flow (@xyflow/react)
+- **Backend**: Bun server
+- **API**: Firecrawl (web scraping and search)
+- **Styling**: Tailwind CSS
+- **PDF Export**: jsPDF + html2canvas
+
+## Project Structure
+
+```
+rabbit-hole/
+├── src/
+│   ├── components/
+│   │   └── ResearchGraph.tsx  # Main graph component
+│   ├── lib/
+│   │   └── graph-utils.ts     # Graph transformation logic
+│   └── index.css              # Global styles
+├── server.ts                  # Bun backend server
+└── package.json
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Features
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- ✅ Interactive node graph visualization
+- ✅ Real-time web research using Firecrawl
+- ✅ Markdown content extraction
+- ✅ Beautiful, minimal UI design
+- ✅ PDF export functionality
+- ✅ Responsive layout
+- ✅ Dark theme
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
